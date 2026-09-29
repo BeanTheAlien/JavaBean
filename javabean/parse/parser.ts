@@ -3,7 +3,7 @@ import { MissingTokenError, UnexpectedTerminationError, UnexpectedTokenError, Un
 import * as fs from "fs";
 import { interp } from "../interp.js";
 
-type ParsedID = "MemberExpr" | "CallExpr" | "Literal" | "Assignment" | "Dec" | "Id" | "ArrayExpr" | "BlockStm" | "FuncDec" | "MethodDec" | "PropDec" | "ArrayAcs" | "CondHeader" | "PropGet" | "PropSet" | "IdOpr" | "New";
+type ParsedID = "MemberExpr" | "CallExpr" | "Literal" | "Assignment" | "Dec" | "Id" | "ArrayExpr" | "BlockStm" | "FuncDec" | "MethodDec" | "PropDec" | "ArrayAcs" | "CondHeader" | "PropGet" | "PropSet" | "IdOpr" | "New" | "Array";
 type Node = { type: ParsedID, val: any };
 type Next = { next: number };
 type Parsed = { node: Node } & Next;
@@ -26,7 +26,8 @@ async function parser(file: string, tks: TokenList): Promise<void> {
     while(i < tks.length) {
         const expr = parseExpr(tks, i);
         i = expr.next;
-        interp(file, expr.node);
+        if(!fs.existsSync(file)) fs.writeFileSync(`out/${file.split("\\")[1].split(".")[0]}.java`, `public class ${file.split("\\")[1].split(".")[0]} {`);
+        fs.appendFileSync(`out/${file.split("\\")[1].split(".")[0]}.java`, interp(file, expr.node));
     }
 }
 type MkNode<T extends ParsedID, V = any> = { node: { type: T, val: V } } & Next;
@@ -48,7 +49,17 @@ function parsePrim(tks: TokenList, i: number): Parsed {
         const pp = parsePrim(tks, i+1);
         return { node: { type: "New", val: pp.node.val }, next: pp.next };
     }
-    // no validation at this point
+    // array (swap for Arrays.asList)
+    if(tk.id == "lbracket") {
+        const s = tks.slice(0, tks.findIndex(x => x.id == "rbracket"));
+        return { node: { type: "Array", val: s.map(x => x.val) }, next: i+s.length };
+    }
+    // array accessor (replace with get)
+    if(tk.id == "id" && tks[i+1]?.id == "lbracket" && tks[i+2]?.id == "num") {
+        const n = Number(tks[i+2].val);
+        return { node: { type: "ArrayAcs", val: [tk.val, n] }, next: i+3 };
+    }
+    // no idea
     return { node: { type: "Id", val: tk.val }, next: i+1 };
 }
 type ParsedMemberExpr = MkNode<"MemberExpr", { obj: Node, prop: string }>;

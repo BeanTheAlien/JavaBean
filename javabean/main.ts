@@ -22,3 +22,6 @@ file.forEach(async f => {
 // seal global/jb
 fs.appendFileSync("out/Global.java", "}");
 jbFiles.forEach(f => fs.appendFileSync("out/" + f + ".java", "}"));
+file.forEach(f => {
+    fs.appendFileSync(`out/${f.name.split(".")[0]}.java`, "}");
+});
